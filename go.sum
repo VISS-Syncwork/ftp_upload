@@ -1,0 +1,12 @@
+github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
+github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
+github.com/hashicorp/go-multierror v1.1.1 h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+lD48awMYo=
+github.com/hashicorp/go-multierror v1.1.1/go.mod h1:iw975J/qwKPdAO1clOe2L8331t/9/fmwbPZ6JB6eMoM=
+github.com/jlaffaye/ftp v0.2.0 h1:lXNvW7cBu7R/68bknOX3MrRIIqZ61zELs1P2RAiA3lg=
+github.com/jlaffaye/ftp v0.2.0/go.mod h1:is2Ds5qkhceAPy2xD6RLI6hmp/qysSoymZ+Z2uTnspI=
+github.com/onbings/ftpsclient v0.0.0-20141101152330-1d622a86a268 h1:cdf6uxFlAwM7V6ZpwaCKyAquzc0sMAddwxqPfp83k/s=
+github.com/onbings/ftpsclient v0.0.0-20141101152330-1d622a86a268/go.mod h1:yptSB1BK30RkUfnV4j1V2MyV8szCvilZYYfq88DxTpw=
+github.com/sacloud/ftps v1.2.0 h1:7UlSWd7cnm1J+sANz7IiBV9ffVcS+4g6ZV5UHVVbvaw=
+github.com/sacloud/ftps v1.2.0/go.mod h1:h4awhOi3PEyhKLj1FpXjoVV5yVkmRUU+d5L95EwX2JU=
+github.com/webguerilla/ftps v0.0.0-20180713194618-60e520f5feed h1:z5hGXxTVFu/QLP3aSJFRGoJyH0tQGIzh60rOO/dXPfk=
+github.com/webguerilla/ftps v0.0.0-20180713194618-60e520f5feed/go.mod h1:lmIhZYdEFO3cDXN7R/8cEBHJLqP8tP+5jNfjZYWjUd8=
