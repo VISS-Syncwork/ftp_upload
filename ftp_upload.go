@@ -20,8 +20,16 @@ func main() {
 	localDir := flag.String("dir", ".", "Quellverzeichnis, das gepackt und hochgeladen werden soll")
 	remoteFile := "remote_archive.tar"
 
-	// Create an FTP connection
-	ftpConn, err := ftp.Dial(*ftpServer+":21", ftp.DialWithTLS(&tls.Config{InsecureSkipVerify: true}))
+	ftpURL := fmt.Sprintf("%s:%d", *ftpServer, "21")
+	tlsCOnfig := &tls.Config{InsecureSkipVerify: true}
+
+	dialOption := ftp.DialWithExplicitTLS(tlsCOnfig)
+	ftpConn, err := ftp.Dial(ftpURL, dialOption)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
