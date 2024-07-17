@@ -6,150 +6,84 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jlaffaye/ftp"
 )
 
 func main() {
-	ftpHost := flag.String("host", "", "FTP-Host-Adresse")
-	ftpPort := flag.Int("port", 21, "FTP-Port")
+	ftpServer := flag.String("host", "", "FTP-Host-Adresse")
 	ftpUser := flag.String("user", "ftpuser", "FTP-Benutzername")
-	ftpPass := flag.String("pass", "password", "FTP-Passwort")
-	ftpDestPath := flag.String("path", "/uploads", "Zielverzeichnis auf dem FTP-Server")
-	sourceDir := flag.String("dir", ".", "Quellverzeichnis, das gepackt und hochgeladen werden soll")
-	flag.Parse()
+	ftpPassword := flag.String("pass", "password", "FTP-Passwort")
+	localDir := flag.String("dir", ".", "Quellverzeichnis, das gepackt und hochgeladen werden soll")
+	remoteFile := "remote_archive.tar"
 
-	tarFileName := "archive.tar"
-
-	sourceDirAbs, err := filepath.Abs(*sourceDir)
+	// Create an FTP connection
+	ftpConn, err := ftp.Dial(*ftpServer+":21", ftp.DialWithTLS(&tls.Config{InsecureSkipVerify: true}))
 	if err != nil {
-		fmt.Println("Fehler beim Ermitteln des absoluten Pfads:", err)
-		return
+		log.Fatal(err)
 	}
 
-	err = createTarArchive(sourceDirAbs, tarFileName)
+	// Login to FTP server
+	err = ftpConn.Login(*ftpUser, *ftpPassword)
 	if err != nil {
-		fmt.Println("Fehler beim Erstellen des Tar-Archivs:", err)
-		return
+		log.Fatal(err)
 	}
+	defer ftpConn.Quit()
 
-	// FTP-Verbindung herstellen mit SSL und ohne Zertifikatsprüfung
-	ftpURL := fmt.Sprintf("%s:%d", *ftpHost, *ftpPort)
-	tlsCOnfig := &tls.Config{InsecureSkipVerify: true}
-	dialOption := ftp.DialWithExplicitTLS(tlsCOnfig)
-	conn, err := ftp.Dial(ftpURL, dialOption)
+	// Create a pipe to stream the data
+	pr, pw := io.Pipe()
 
-	if err != nil {
-		fmt.Println("Fehler beim Verbinden mit dem FTP-Server:", err)
-		return
-	}
-	defer conn.Quit()
+	go func() {
+		defer pw.Close()
+		tw := tar.NewWriter(pw)
+		defer tw.Close()
 
-	err = conn.Login(*ftpUser, *ftpPass)
-	if err != nil {
-		fmt.Println("Fehler beim Anmelden beim FTP-Server:", err)
-		return
-	}
-
-	err = uploadFile(conn, tarFileName, *ftpDestPath)
-	if err != nil {
-		fmt.Println("Fehler beim Hochladen des Tar-Archivs:", err)
-		return
-	}
-
-	fmt.Println("Erfolgreich gepackt und hochgeladen:", tarFileName)
-}
-
-func createTarArchive(sourceDir, tarFileName string) error {
-	tarFile, err := os.Create(tarFileName)
-	if err != nil {
-		return err
-	}
-	defer tarFile.Close()
-
-	tarWriter := tar.NewWriter(tarFile)
-	defer tarWriter.Close()
-
-	filepath.Walk(sourceDir, func(filePath string, fileInfo os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		header, err := tar.FileInfoHeader(fileInfo, fileInfo.Name())
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(sourceDir, filePath)
-		if err != nil {
-			return err
-		}
-		header.Name = filepath.ToSlash(relPath)
-
-		err = tarWriter.WriteHeader(header)
-		if err != nil {
-			return err
-		}
-
-		if fileInfo.Mode().IsRegular() {
-			file, err := os.Open(filePath)
+		err := filepath.Walk(*localDir, func(file string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			defer file.Close()
 
-			_, err = io.Copy(tarWriter, file)
+			if fi.IsDir() {
+				return nil
+			}
+
+			hdr, err := tar.FileInfoHeader(fi, file)
 			if err != nil {
 				return err
 			}
+
+			// Update the header to use a relative path
+			hdr.Name, _ = filepath.Rel(*localDir, file)
+
+			if err := tw.WriteHeader(hdr); err != nil {
+				return err
+			}
+
+			f, err := os.Open(file)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			if _, err := io.Copy(tw, f); err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			log.Fatal(err)
 		}
+	}()
 
-		fmt.Printf("Packing: %s\n", header.Name)
-		return nil
-	})
-
-	return err
-}
-
-func uploadFile(conn *ftp.ServerConn, localPath, remotePath string) error {
-	file, err := os.Open(localPath)
+	err = ftpConn.Stor(remoteFile, pr)
 	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	if err := conn.ChangeDir(remotePath); err != nil {
-		if strings.HasPrefix(err.Error(), "550") {
-			err := conn.MakeDir(remotePath)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+		log.Fatal(err)
 	}
 
-	info, _ := file.Stat()
-	progress := &ProgressReader{Reader: file, Total: info.Size(), Callback: func(uploaded int64) {
-		fmt.Printf("Uploading: %d / %d bytes\n", uploaded, info.Size())
-	}}
-
-	return conn.Stor(filepath.Base(localPath), progress)
-}
-
-type ProgressReader struct {
-	Reader   io.Reader
-	Total    int64
-	Uploaded int64
-	Callback func(uploaded int64)
-}
-
-func (pr *ProgressReader) Read(p []byte) (n int, err error) {
-	n, err = pr.Reader.Read(p)
-	pr.Uploaded += int64(n)
-	pr.Callback(pr.Uploaded)
-	return
+	fmt.Println("Tar archive uploaded successfully.")
 }
